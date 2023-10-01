@@ -1,5 +1,5 @@
 <ul>
-    {{range .Answers}}
-        <li>{{.}}</li>
+    {{range .Scores}}
+        <li>{{.Player.Name}}: {{.Score}}</li>
     {{end}}
 </ul>

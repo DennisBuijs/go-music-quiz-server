@@ -15,11 +15,28 @@ type Answer struct {
 	Answer string
 }
 
-func main() {
-	sseServer := sse.New()
-	sseServer.CreateStream("scoreboard")
+type Player struct {
+	Name string
+}
 
-	var PreviousAnswers []string
+type Score struct {
+	Player Player
+	Score  int
+}
+
+type Scoreboard struct {
+	Scores []Score
+}
+
+var SseServer *sse.Server
+var scoreboard Scoreboard
+
+func main() {
+	SseServer = sse.New()
+	SseServer.CreateStream("scoreboard")
+
+	var players []Player
+	scoreboard = Scoreboard{}
 
 	http.HandleFunc("/quiz", func(w http.ResponseWriter, r *http.Request) {
 		t, err := template.ParseFiles("../web/templates/index.html")
@@ -31,30 +48,43 @@ func main() {
 		t.Execute(w, nil)
 	})
 
-	http.HandleFunc("/answer", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/player/register", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allows", http.StatusMethodNotAllowed)
 		}
 
 		r.ParseForm()
 
-		var answer Answer
-		answer.Answer = r.FormValue("answer")
+		var player Player
+		player.Name = r.FormValue("name")
 
-		PreviousAnswers = append(PreviousAnswers, answer.Answer)
+		players = append(players, player)
 
-		var templateBuffer bytes.Buffer
-		t, _ := template.ParseFiles("../web/templates/scoreboard.html")
-		t.Execute(&templateBuffer, struct{ Answers []string }{Answers: PreviousAnswers})
+		var score Score
+		score.Player = player
+		score.Score = 0
 
-		sseServer.Publish("scoreboard", &sse.Event{
-			Data: bytes.ReplaceAll(templateBuffer.Bytes(), []byte("\n"), []byte("")),
-		})
+		scoreboard.Scores = append(scoreboard.Scores, score)
+
+		fmt.Println(scoreboard.Scores)
+
+		emitScoreboardUpdate()
+	})
+
+	http.HandleFunc("/answer", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allows", http.StatusMethodNotAllowed)
+		}
+
+		// r.ParseForm()
+
+		// var answer Answer
+		// answer.Answer = r.FormValue("answer")
 	})
 
 	http.HandleFunc("/web/", staticHandler)
 
-	http.HandleFunc("/events", sseServer.ServeHTTP)
+	http.HandleFunc("/events", SseServer.ServeHTTP)
 
 	http.ListenAndServe(":3000", nil)
 }
@@ -76,4 +106,16 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Print(err)
 	}
+}
+
+func emitScoreboardUpdate() {
+	var templateBuffer bytes.Buffer
+	t, _ := template.ParseFiles("../web/templates/scoreboard.html")
+	t.Execute(&templateBuffer, scoreboard)
+
+	fmt.Println(scoreboard)
+
+	SseServer.Publish("scoreboard", &sse.Event{
+		Data: bytes.ReplaceAll(templateBuffer.Bytes(), []byte("\n"), []byte("")),
+	})
 }
