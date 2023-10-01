@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Quiz</title>
+
+    <script src="https://unpkg.com/htmx.org/dist/htmx.min.js"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/web/css/style.css">
+</head>
+
+<body>
+    <div class="layout">
+        <div class="header">
+            <h1>Music Quiz</h1>
+        </div>
+        <div class="sidebar">
+            <div class="sidebar-container">
+                <strong>Scoreboard</strong>
+            <div class="scoreboard" hx-ext="sse" sse-connect="events?stream=scoreboard" sse-swap="message"></div>
+            </div>
+        </div>
+        <div class="game">
+            <img src="/web/images/loading.svg" alt="Loading" aria-hidden>
+        </div>
+        <div class="actions">
+            <form hx-post="answer" hx-swap="none" hx-on::after-request="this.reset()">
+                <input type="text" name="answer" placeholder="Type your answer and press enter to submit">
+            </form>
+        </div>
+    </div>
+    
+</body>
+
+</html>
