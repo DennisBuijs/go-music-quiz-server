@@ -50,7 +50,8 @@ func main() {
 
 	http.HandleFunc("/player/register", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allows", http.StatusMethodNotAllowed)
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
 		}
 
 		r.ParseForm()
@@ -66,14 +67,13 @@ func main() {
 
 		scoreboard.Scores = append(scoreboard.Scores, score)
 
-		fmt.Println(scoreboard.Scores)
-
 		emitScoreboardUpdate()
 	})
 
 	http.HandleFunc("/answer", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allows", http.StatusMethodNotAllowed)
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
 		}
 
 		// r.ParseForm()
@@ -112,8 +112,6 @@ func emitScoreboardUpdate() {
 	var templateBuffer bytes.Buffer
 	t, _ := template.ParseFiles("../web/templates/scoreboard.html")
 	t.Execute(&templateBuffer, scoreboard)
-
-	fmt.Println(scoreboard)
 
 	SseServer.Publish("scoreboard", &sse.Event{
 		Data: bytes.ReplaceAll(templateBuffer.Bytes(), []byte("\n"), []byte("")),
