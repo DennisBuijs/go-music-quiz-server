@@ -61,6 +61,7 @@ func main() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/", homeRouteHandler)
+
 	r.HandleFunc("/room/{slug}", gameRouteHandler)
 	r.HandleFunc("/room/{slug}/join", registerPlayerHandler)
 
@@ -69,7 +70,7 @@ func main() {
 
 	http.Handle("/", r)
 
-	err := http.ListenAndServe(":3000", r)
+	err := http.ListenAndServe("127.0.0.1:3000", r)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -129,7 +130,7 @@ func findRoom(slug string) *Room {
 	return nil
 }
 
-func homeRouteHandler(w http.ResponseWriter, r *http.Request) {
+func homeRouteHandler(w http.ResponseWriter, _ *http.Request) {
 	t, err := template.ParseFiles("../web/templates/base.html", "../web/templates/home.html")
 
 	if err != nil {

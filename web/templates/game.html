@@ -5,7 +5,7 @@
 <style>
     .container h1 {
         font-size: 1.4rem;
-        margin: 0;
+        margin: 0 0 16px;
     }
 </style>
 
@@ -16,20 +16,18 @@
             <div class="scoreboard"
                  hx-ext="sse"
                  sse-connect="/events?stream=scoreboard&room={{ .Slug }}"
-                 sse-swap="message"
-                 hx-target=".swap">
+                 sse-swap="message">
             </div>
-
-            <div class="swap"></div>
         </div>
     </div>
     <div class="game">
         <img src="/web/images/loading.svg" alt="Loading" aria-hidden="true">
     </div>
     <div class="actions">
-        <!--suppress XmlUnboundNsPrefix -->
         <form hx-post="answer" hx-swap="none" hx-on::after-request="this.reset()">
-            <input type="text" name="answer" placeholder="Type your answer and press enter to submit">
+            <label>
+                <input type="text" name="answer" placeholder="Type your answer and press enter to submit">
+            </label>
         </form>
     </div>
 </div>

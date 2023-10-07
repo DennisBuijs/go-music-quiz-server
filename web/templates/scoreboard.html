@@ -1,5 +1,6 @@
-<ul>
-    {{range .Scores}}
-        <li>{{.Player.Name}}: {{.Score}}</li>
-    {{end}}
-</ul>
+{{range .Scores}}
+<div class="scoreboard-player">
+    <div class="player-name">{{.Player.Name}}</div>
+    <div class="player-score">{{.Score}}</div>
+</div>
+{{end}}

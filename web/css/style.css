@@ -61,3 +61,12 @@ a {
 header a {
     text-decoration: none;
 }
+
+.scoreboard-player {
+    display: grid;
+    grid-template-columns: 75% 25%;
+}
+
+.scoreboard-player .player-score {
+    text-align: right;
+}

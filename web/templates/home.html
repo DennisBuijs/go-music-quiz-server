@@ -47,7 +47,16 @@
     button:hover {
         background: #434254;
     }
+
+    .hero {
+        margin-bottom: 64px;
+    }
 </style>
+
+<div class="hero">
+    <h1>Music Quiz</h1>
+    <p>Welcome to the most fun you can have on the internet!</p>
+</div>
 
 <div class="room-grid">
     {{range . }}
@@ -59,7 +68,7 @@
             <div class="title">{{ .Name }}</div>
             <div class="footer">
                 <a href="/room/{{ .Slug }}">
-                    <button>Join {{ len .Scoreboard.Scores }} players</button>
+                    <button>Join {{ len .Scoreboard.Scores }} player(s)</button>
                 </a>
             </div>
         </div>
