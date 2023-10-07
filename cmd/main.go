@@ -38,14 +38,30 @@ func main() {
 	var players []Player
 	scoreboard = Scoreboard{}
 
-	http.HandleFunc("/quiz", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		t, err := template.ParseFiles("../web/templates/index.html")
 
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		t.Execute(w, nil)
+		err = t.Execute(w, nil)
+		if err != nil {
+			return
+		}
+	})
+
+	http.HandleFunc("/quiz", func(w http.ResponseWriter, r *http.Request) {
+		t, err := template.ParseFiles("../web/templates/game.html")
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		err = t.Execute(w, nil)
+		if err != nil {
+			return
+		}
 	})
 
 	http.HandleFunc("/player/register", func(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +70,10 @@ func main() {
 			return
 		}
 
-		r.ParseForm()
+		err := r.ParseForm()
+		if err != nil {
+			return
+		}
 
 		var player Player
 		player.Name = r.FormValue("name")
@@ -86,7 +105,10 @@ func main() {
 
 	http.HandleFunc("/events", SseServer.ServeHTTP)
 
-	http.ListenAndServe(":3000", nil)
+	err := http.ListenAndServe(":3000", nil)
+	if err != nil {
+		return
+	}
 }
 
 func staticHandler(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +133,10 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 func emitScoreboardUpdate() {
 	var templateBuffer bytes.Buffer
 	t, _ := template.ParseFiles("../web/templates/scoreboard.html")
-	t.Execute(&templateBuffer, scoreboard)
+	err := t.Execute(&templateBuffer, scoreboard)
+	if err != nil {
+		return
+	}
 
 	SseServer.Publish("scoreboard", &sse.Event{
 		Data: bytes.ReplaceAll(templateBuffer.Bytes(), []byte("\n"), []byte("")),
