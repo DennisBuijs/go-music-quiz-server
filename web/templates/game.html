@@ -2,11 +2,25 @@
 
 <link rel="stylesheet" href="/web/css/game.css">
 
+<style>
+    .container h1 {
+        font-size: 1.4rem;
+        margin: 0;
+    }
+</style>
+
 <div class="container">
     <div class="sidebar">
         <div class="sidebar-container">
-            <strong>Scoreboard</strong>
-            <div class="scoreboard" hx-ext="sse" sse-connect="events?stream=scoreboard" sse-swap="message"></div>
+            <h1>{{ .Name }}</h1>
+            <div class="scoreboard"
+                 hx-ext="sse"
+                 sse-connect="/events?stream=scoreboard&room={{ .Slug }}"
+                 sse-swap="message"
+                 hx-target=".swap">
+            </div>
+
+            <div class="swap"></div>
         </div>
     </div>
     <div class="game">

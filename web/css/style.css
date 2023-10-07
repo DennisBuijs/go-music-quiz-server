@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
 
 * {
     box-sizing: border-box;
@@ -21,7 +21,7 @@ body {
 body {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: 80px 1fr 40px;
+    grid-template-rows: 64px 1fr 40px;
     grid-column-gap: 0;
     grid-row-gap: 0;
 }
@@ -44,6 +44,10 @@ header, footer {
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+header h1 {
+    font-size: 1.6rem;
 }
 
 .content {
