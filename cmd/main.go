@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -39,7 +40,7 @@ func main() {
 	scoreboard = Scoreboard{}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		t, err := template.ParseFiles("../web/templates/index.html")
+		t, err := template.ParseFiles("../web/templates/base.html", "../web/templates/home.html")
 
 		if err != nil {
 			fmt.Println(err)
@@ -47,12 +48,12 @@ func main() {
 
 		err = t.Execute(w, nil)
 		if err != nil {
-			return
+			fmt.Println(err)
 		}
 	})
 
 	http.HandleFunc("/quiz", func(w http.ResponseWriter, r *http.Request) {
-		t, err := template.ParseFiles("../web/templates/game.html")
+		t, err := template.ParseFiles("../web/templates/base.html", "../web/templates/game.html")
 
 		if err != nil {
 			fmt.Println(err)
@@ -60,7 +61,7 @@ func main() {
 
 		err = t.Execute(w, nil)
 		if err != nil {
-			return
+			fmt.Println(err)
 		}
 	})
 
@@ -72,7 +73,7 @@ func main() {
 
 		err := r.ParseForm()
 		if err != nil {
-			return
+			fmt.Println(err)
 		}
 
 		var player Player
@@ -107,7 +108,7 @@ func main() {
 
 	err := http.ListenAndServe(":3000", nil)
 	if err != nil {
-		return
+		log.Fatal(err)
 	}
 }
 
@@ -126,7 +127,7 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = w.Write(data)
 	if err != nil {
-		fmt.Print(err)
+		log.Fatal(err)
 	}
 }
 
@@ -135,7 +136,7 @@ func emitScoreboardUpdate() {
 	t, _ := template.ParseFiles("../web/templates/scoreboard.html")
 	err := t.Execute(&templateBuffer, scoreboard)
 	if err != nil {
-		return
+		log.Fatal(err)
 	}
 
 	SseServer.Publish("scoreboard", &sse.Event{
