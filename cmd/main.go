@@ -47,7 +47,6 @@ var players []Player
 
 func main() {
 	SseServer = sse.New()
-	SseServer.CreateStream("scoreboard")
 
 	rooms = []Room{
 		{
@@ -66,6 +65,10 @@ func main() {
 				Scores: []*Score{},
 			},
 		},
+	}
+
+	for _, room := range rooms {
+		SseServer.CreateStream(room.Slug + ".scoreboard-update")
 	}
 
 	r := mux.NewRouter()
@@ -89,15 +92,15 @@ func main() {
 	}
 }
 
-func emitScoreboardUpdate(scoreboard Scoreboard) {
+func emitScoreboardUpdate(room *Room) {
 	var templateBuffer bytes.Buffer
 	t, _ := template.ParseFiles("../web/templates/scoreboard.html")
-	err := t.Execute(&templateBuffer, scoreboard)
+	err := t.Execute(&templateBuffer, room.Scoreboard)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	SseServer.Publish("scoreboard", &sse.Event{
+	SseServer.Publish(room.Slug+".scoreboard-update", &sse.Event{
 		Data: bytes.ReplaceAll(templateBuffer.Bytes(), []byte("\n"), []byte("")),
 	})
 }
@@ -134,7 +137,7 @@ func registerPlayerHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Dbmq-Auth-Token", token)
 
-	emitScoreboardUpdate(room.Scoreboard)
+	emitScoreboardUpdate(room)
 }
 
 func homeRouteHandler(w http.ResponseWriter, _ *http.Request) {
@@ -180,7 +183,7 @@ func gameRouteHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Room %s: Player %s has %d points\n", room.Name, player.Name, score.Score)
 	}
 
-	emitScoreboardUpdate(room.Scoreboard)
+	emitScoreboardUpdate(room)
 }
 
 func playerAnsweredHandler(_ http.ResponseWriter, r *http.Request) {
@@ -200,7 +203,7 @@ func playerAnsweredHandler(_ http.ResponseWriter, r *http.Request) {
 
 	room.Scoreboard.updateScore(player, 1)
 
-	emitScoreboardUpdate(room.Scoreboard)
+	emitScoreboardUpdate(room)
 }
 
 func staticHandler(w http.ResponseWriter, r *http.Request) {

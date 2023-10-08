@@ -15,7 +15,7 @@
             <h1>{{ .Name }}</h1>
             <div class="scoreboard"
                  hx-ext="sse"
-                 sse-connect="/events?stream=scoreboard&room={{ .Slug }}"
+                 sse-connect="/events?stream={{ .Slug }}.scoreboard-update"
                  sse-swap="message">
             </div>
         </div>
