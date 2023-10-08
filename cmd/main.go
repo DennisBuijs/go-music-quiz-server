@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/r3labs/sse/v2"
 	"html/template"
@@ -20,7 +22,8 @@ type Room struct {
 }
 
 type Player struct {
-	Name string
+	Name  string
+	Token string
 }
 
 type Score struct {
@@ -59,11 +62,12 @@ func main() {
 	}
 
 	r := mux.NewRouter()
+	r.Use(loggingMiddleware)
 
 	r.HandleFunc("/", homeRouteHandler)
 
-	r.HandleFunc("/room/{slug}", gameRouteHandler)
-	r.HandleFunc("/room/{slug}/join", registerPlayerHandler)
+	r.HandleFunc("/room/{slug}", gameRouteHandler).Methods("GET")
+	r.HandleFunc("/room/{slug}/join", registerPlayerHandler).Methods("POST")
 
 	r.HandleFunc("/events", SseServer.ServeHTTP)
 	r.HandleFunc("/web/{dir}/{filepath:.*}", staticHandler)
@@ -90,11 +94,6 @@ func emitScoreboardUpdate(scoreboard Scoreboard) {
 }
 
 func registerPlayerHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	routeParams := mux.Vars(r)
 	slug := routeParams["slug"]
 	var room = findRoom(slug)
@@ -108,8 +107,12 @@ func registerPlayerHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 	}
 
-	var player Player
-	player.Name = r.FormValue("name")
+	token := uuid.NewString()
+
+	player := Player{
+		Name:  r.FormValue("name"),
+		Token: token,
+	}
 
 	var score Score
 	score.Player = player
@@ -117,17 +120,11 @@ func registerPlayerHandler(w http.ResponseWriter, r *http.Request) {
 
 	room.Scoreboard.Scores = append(room.Scoreboard.Scores, score)
 
+	fmt.Printf("Player %v joined (%s)", score.Player.Name, score.Player.Token)
+
+	w.Header().Set("Dbmq-Auth-Token", token)
+
 	emitScoreboardUpdate(room.Scoreboard)
-}
-
-func findRoom(slug string) *Room {
-	for i := range rooms {
-		if rooms[i].Slug == slug {
-			return &rooms[i]
-		}
-	}
-
-	return nil
 }
 
 func homeRouteHandler(w http.ResponseWriter, _ *http.Request) {
@@ -144,15 +141,28 @@ func homeRouteHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func gameRouteHandler(w http.ResponseWriter, r *http.Request) {
+	player, _ := getPlayerFromRequest(r)
+
+	routeParams := mux.Vars(r)
+	slug := routeParams["slug"]
+	var room = findRoom(slug)
+
+	if player == nil {
+		t, _ := template.ParseFiles("../web/templates/base.html", "../web/templates/login.html")
+		err := t.Execute(w, room)
+		if err != nil {
+			fmt.Println(err)
+		}
+		return
+	}
+
+	fmt.Println(player.Name)
+
 	t, err := template.ParseFiles("../web/templates/base.html", "../web/templates/game.html")
 
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	routeParams := mux.Vars(r)
-	slug := routeParams["slug"]
-	var room = findRoom(slug)
 
 	err = t.Execute(w, room)
 	if err != nil {
@@ -180,4 +190,40 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func getPlayerFromRequest(r *http.Request) (*Player, error) {
+	token := r.Header.Get("Authentication-Token")
+
+	fmt.Println(token)
+
+	routeParams := mux.Vars(r)
+	slug := routeParams["slug"]
+	var room = findRoom(slug)
+
+	for i := range room.Scoreboard.Scores {
+		if room.Scoreboard.Scores[i].Player.Token == token {
+			fmt.Println(room.Scoreboard.Scores[i].Player)
+			return &room.Scoreboard.Scores[i].Player, nil
+		}
+	}
+
+	return nil, errors.New("player not found")
+}
+
+func findRoom(slug string) *Room {
+	for i := range rooms {
+		if rooms[i].Slug == slug {
+			return &rooms[i]
+		}
+	}
+
+	return nil
+}
+
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Println(r.Header.Get("Authentication-Token"))
+		next.ServeHTTP(w, r)
+	})
 }

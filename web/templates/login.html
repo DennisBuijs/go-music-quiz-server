@@ -1,0 +1,30 @@
+{{ define "content" }}
+<style>
+    .container {
+        width: 50%;
+        margin: 0 auto;
+    }
+
+    label {
+        font-weight: 500;
+    }
+
+    input {
+        display: block;
+        padding: 8px;
+        width: 100%;
+        font-family: 'Inter', sans-serif;
+        font-size: 1.2rem;
+    }
+</style>
+<div class="container">
+    <h1>Joining {{ .Name }}!</h1>
+    <p>What's your name?</p>
+    <form hx-post="/room/{{ .Slug }}/join " hx-on::after-request="setToken(event)">
+        <label>
+            Username
+            <input type="text" name="name">
+        </label>
+    </form>
+</div>
+{{ end }}
