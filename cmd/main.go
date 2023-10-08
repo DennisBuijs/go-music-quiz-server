@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -27,7 +28,7 @@ type Player struct {
 }
 
 type Score struct {
-	Player Player
+	Player *Player
 	Score  int
 }
 
@@ -37,6 +38,7 @@ type Scoreboard struct {
 
 var SseServer *sse.Server
 var rooms []Room
+var players []Player
 
 func main() {
 	SseServer = sse.New()
@@ -62,12 +64,14 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-	r.Use(loggingMiddleware)
+	r.Use(authMiddleware)
+	r.Use(roomMiddleware)
 
 	r.HandleFunc("/", homeRouteHandler)
 
 	r.HandleFunc("/room/{slug}", gameRouteHandler).Methods("GET")
 	r.HandleFunc("/room/{slug}/join", registerPlayerHandler).Methods("POST")
+	r.HandleFunc("/room/{slug}/answer", playerAnsweredHandler).Methods("POST")
 
 	r.HandleFunc("/events", SseServer.ServeHTTP)
 	r.HandleFunc("/web/{dir}/{filepath:.*}", staticHandler)
@@ -94,13 +98,7 @@ func emitScoreboardUpdate(scoreboard Scoreboard) {
 }
 
 func registerPlayerHandler(w http.ResponseWriter, r *http.Request) {
-	routeParams := mux.Vars(r)
-	slug := routeParams["slug"]
-	var room = findRoom(slug)
-
-	if room == nil {
-		http.Error(w, "Room not found", http.StatusNotFound)
-	}
+	room := r.Context().Value("room").(*Room)
 
 	err := r.ParseForm()
 	if err != nil {
@@ -114,8 +112,10 @@ func registerPlayerHandler(w http.ResponseWriter, r *http.Request) {
 		Token: token,
 	}
 
+	players = append(players, player)
+
 	var score Score
-	score.Player = player
+	score.Player = &player
 	score.Score = 0
 
 	room.Scoreboard.Scores = append(room.Scoreboard.Scores, score)
@@ -141,11 +141,8 @@ func homeRouteHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func gameRouteHandler(w http.ResponseWriter, r *http.Request) {
-	player, _ := getPlayerFromRequest(r)
-
-	routeParams := mux.Vars(r)
-	slug := routeParams["slug"]
-	var room = findRoom(slug)
+	player := r.Context().Value("player").(*Player)
+	room := r.Context().Value("room").(*Room)
 
 	if player == nil {
 		t, _ := template.ParseFiles("../web/templates/base.html", "../web/templates/login.html")
@@ -155,8 +152,6 @@ func gameRouteHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	fmt.Println(player.Name)
 
 	t, err := template.ParseFiles("../web/templates/base.html", "../web/templates/game.html")
 
@@ -168,6 +163,17 @@ func gameRouteHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err)
 	}
+}
+
+func playerAnsweredHandler(w http.ResponseWriter, r *http.Request) {
+	room := r.Context().Value("room").(*Room)
+
+	err := r.ParseForm()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	emitScoreboardUpdate(room.Scoreboard)
 }
 
 func staticHandler(w http.ResponseWriter, r *http.Request) {
@@ -195,16 +201,13 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 func getPlayerFromRequest(r *http.Request) (*Player, error) {
 	token := r.Header.Get("Authentication-Token")
 
-	fmt.Println(token)
+	if token == "" {
+		return nil, errors.New("no auth token")
+	}
 
-	routeParams := mux.Vars(r)
-	slug := routeParams["slug"]
-	var room = findRoom(slug)
-
-	for i := range room.Scoreboard.Scores {
-		if room.Scoreboard.Scores[i].Player.Token == token {
-			fmt.Println(room.Scoreboard.Scores[i].Player)
-			return &room.Scoreboard.Scores[i].Player, nil
+	for i := range players {
+		if players[i].Token == token {
+			return &players[i], nil
 		}
 	}
 
@@ -221,9 +224,26 @@ func findRoom(slug string) *Room {
 	return nil
 }
 
-func loggingMiddleware(next http.Handler) http.Handler {
+func roomMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println(r.Header.Get("Authentication-Token"))
-		next.ServeHTTP(w, r)
+		routeParams := mux.Vars(r)
+		slug := routeParams["slug"]
+		var room = findRoom(slug)
+
+		if slug != "" && room == nil {
+			http.Error(w, "Room not found", http.StatusNotFound)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "room", room)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		player, _ := getPlayerFromRequest(r)
+		ctx := context.WithValue(r.Context(), "player", player)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
