@@ -23,6 +23,7 @@ type Room struct {
 }
 
 type Player struct {
+	ID    string
 	Name  string
 	Token string
 }
@@ -33,7 +34,11 @@ type Score struct {
 }
 
 type Scoreboard struct {
-	Scores []Score
+	Scores []*Score
+}
+
+type Answer struct {
+	Answer string
 }
 
 var SseServer *sse.Server
@@ -50,7 +55,7 @@ func main() {
 			Slug:  "classic-rock",
 			Image: "../web/images/guitar.svg",
 			Scoreboard: Scoreboard{
-				Scores: []Score{},
+				Scores: []*Score{},
 			},
 		},
 		{
@@ -58,7 +63,7 @@ func main() {
 			Slug:  "pop-hits",
 			Image: "../web/images/pop.svg",
 			Scoreboard: Scoreboard{
-				Scores: []Score{},
+				Scores: []*Score{},
 			},
 		},
 	}
@@ -105,22 +110,27 @@ func registerPlayerHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 	}
 
+	id := uuid.NewString()
 	token := uuid.NewString()
 
 	player := Player{
+		ID:    id,
 		Name:  r.FormValue("name"),
 		Token: token,
 	}
 
 	players = append(players, player)
 
-	var score Score
-	score.Player = &player
-	score.Score = 0
+	score := Score{
+		Player: &player,
+		Score:  0,
+	}
 
-	room.Scoreboard.Scores = append(room.Scoreboard.Scores, score)
+	scorePointer := &score
 
-	fmt.Printf("Player %v joined (%s)", score.Player.Name, score.Player.Token)
+	room.Scoreboard.Scores = append(room.Scoreboard.Scores, scorePointer)
+
+	fmt.Printf("Player %s joined (%s)\n", score.Player.Name, score.Player.Token)
 
 	w.Header().Set("Dbmq-Auth-Token", token)
 
@@ -163,15 +173,32 @@ func gameRouteHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	room.Scoreboard.findOrCreateScore(player)
+
+	for _, score := range room.Scoreboard.Scores {
+		fmt.Printf("Room %s: Player %s has %d points\n", room.Name, player.Name, score.Score)
+	}
+
+	emitScoreboardUpdate(room.Scoreboard)
 }
 
-func playerAnsweredHandler(w http.ResponseWriter, r *http.Request) {
+func playerAnsweredHandler(_ http.ResponseWriter, r *http.Request) {
+	player := r.Context().Value("player").(*Player)
 	room := r.Context().Value("room").(*Room)
 
 	err := r.ParseForm()
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	answer := Answer{
+		Answer: r.FormValue("answer"),
+	}
+
+	fmt.Printf("%s answered '%s' in room %s\n", player.Name, answer.Answer, room.Name)
+
+	room.Scoreboard.updateScore(player, 1)
 
 	emitScoreboardUpdate(room.Scoreboard)
 }
@@ -246,4 +273,26 @@ func authMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), "player", player)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func (s *Scoreboard) findOrCreateScore(player *Player) *Score {
+	for _, score := range s.Scores {
+		if score.Player.ID == player.ID {
+			return score
+		}
+	}
+
+	newScore := &Score{
+		Player: player,
+		Score:  0,
+	}
+
+	s.Scores = append(s.Scores, newScore)
+
+	return newScore
+}
+
+func (s *Scoreboard) updateScore(player *Player, points int) {
+	score := s.findOrCreateScore(player)
+	score.Score += points
 }
