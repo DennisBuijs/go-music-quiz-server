@@ -68,7 +68,7 @@ func main() {
 	}
 
 	for _, room := range rooms {
-		SseServer.CreateStream(room.Slug + ".scoreboard-update")
+		SseServer.CreateStream(room.Slug)
 	}
 
 	r := mux.NewRouter()
@@ -100,8 +100,9 @@ func emitScoreboardUpdate(room *Room) {
 		log.Fatal(err)
 	}
 
-	SseServer.Publish(room.Slug+".scoreboard-update", &sse.Event{
-		Data: bytes.ReplaceAll(templateBuffer.Bytes(), []byte("\n"), []byte("")),
+	SseServer.Publish(room.Slug, &sse.Event{
+		Event: []byte("scoreboard-update"),
+		Data:  bytes.ReplaceAll(templateBuffer.Bytes(), []byte("\n"), []byte("")),
 	})
 }
 
